@@ -1,6 +1,6 @@
 # vmangos-docker
 
-使用 GitHub Actions 构建 vMaNGOS Docker 镜像，验证后推送到 GitHub Container Registry。
+使用 GitHub Actions 下载官方 Development Build Release，打包为 Docker 镜像，验证后推送到 GitHub Container Registry。**不重新编译 vMaNGOS 源码。**
 
 ## 镜像
 
@@ -12,7 +12,8 @@ ghcr.io/cherrs/vmangos-docker:sha-<本仓库的完整提交 SHA>
 - 平台：`linux/amd64`。
 - 客户端：原版 WoW 1.12.1 / build 5875。
 - 核心源码：[`vmangos/core@a9fa07aab5e745cae17c5016c9eddffdb75ea7f1`](https://github.com/vmangos/core/tree/a9fa07aab5e745cae17c5016c9eddffdb75ea7f1)。
-- 构建与运行环境：Ubuntu 24.04；Release；关闭本机 CPU 特化。
+- 官方二进制：`dev-linux-amd64-a9fa07a.tar.gz`，包含按相对 RPATH 加载的动态库。
+- 基础运行环境：Ubuntu 24.04，与官方 Linux Release 的构建/验证环境一致。
 - 包含：`mangosd`、`realmd`、地图提取器、默认配置、SQL 迁移与固定官方四库快照。
 - 不包含：客户端文件及提取出的 DBC、maps、vmaps、mmaps。
 
@@ -25,7 +26,7 @@ ghcr.io/cherrs/vmangos-docker:sha-<本仓库的完整提交 SHA>
 工作流顺序：
 
 1. 检查 Python/Bash 脚本。
-2. 构建并加载镜像，使用 GitHub Actions 构建缓存。
+2. 下载固定官方 Release，校验 SHA256 并打包；同一提交的源码归档只提取 SQL 迁移和许可证，不执行编译。镜像层使用 GitHub Actions 缓存。
 3. 检查两个服务端二进制与四个提取器的动态库依赖。
 4. 启动临时 MariaDB 10.11，导入 realmd、characters、mangos、logs 四库。
 5. 重复运行初始化，确认已成功初始化的库不会被重导或覆盖。
@@ -50,7 +51,7 @@ docker pull ghcr.io/cherrs/vmangos-docker:a9fa07a-5875
 ## 本地构建和复验
 
 ```bash
-docker build --build-arg BUILD_JOBS=2 -t vmangos-local:a9fa07a-5875 ./image
+docker build -t vmangos-local:a9fa07a-5875 ./image
 bash scripts/smoke-test.sh vmangos-local:a9fa07a-5875
 ```
 
@@ -78,7 +79,13 @@ mangosd    # 默认入口，生成配置并启动世界服，TCP 8085
 
 世界服控制台需要保留 stdin/TTY。RA、SOAP 默认关闭。bootstrap 检测到已有或部分导入的库会拒绝覆盖；已完成的同版本初始化直接退出，不能用它升级已有玩家库。
 
-## 数据快照和更新
+## 固定发布包和更新
+
+官方 Linux Release：`dev-linux-amd64-a9fa07a.tar.gz`，SHA256：
+
+```text
+8dc140a926e882d1d4644f3bca0ae370bd0882e175572ab3caacddc493f59511
+```
 
 镜像使用官方 `db-4641790.zip`，SHA256：
 
@@ -86,8 +93,8 @@ mangosd    # 默认入口，生成配置并启动世界服，TCP 8085
 9e178f1d70363e92a7b8c259000102dc9739333d79ca00c99ea32dd1fb43e904
 ```
 
-官方 `db_latest` release 会替换附件，旧下载地址以后可能失效。需要长期复现时，应自行归档原 ZIP，再更新 Dockerfile 下载地址，保持相同 SHA256。不要静默替换为不同日期的快照。
+官方 `latest` 和 `db_latest` release 都会替换附件，旧下载地址以后可能失效。需要长期复现时，应自行归档二进制包和数据库 ZIP，再更新 Dockerfile 下载地址，保持相同 SHA256。不要静默替换为不同日期的发布包或快照。
 
-更新核心版本时，同步修改 Dockerfile 中两个 `CORE_REV` 默认值、工作流的核心/客户端标签，以及这里的版本说明，并处理已有数据库的迁移。镜像中的上游许可证位于 `/opt/vmangos/LICENSE`；上游源码可从上述固定提交获取。
+更新核心版本时，同步修改 Dockerfile 的 `CORE_REV`、`RELEASE_ARCHIVE`、二进制及源码归档 SHA256、工作流的核心/客户端标签，以及这里的版本说明，并处理已有数据库的迁移。镜像中的上游许可证位于 `/opt/vmangos/LICENSE`；上游源码可从上述固定提交获取。
 
 参考：[GitHub GHCR 文档](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)、[vMaNGOS Linux 安装说明](https://vmangos.github.io/wiki/Getting-it-working-Linux/)。

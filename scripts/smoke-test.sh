@@ -28,6 +28,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+docker run --rm --entrypoint /opt/vmangos/bin/realmd "$image" --version
+docker run --rm --entrypoint /opt/vmangos/bin/mangosd "$image" --version
 docker run --rm --entrypoint bash "$image" -euc '
   for binary in /opt/vmangos/bin/mangosd /opt/vmangos/bin/realmd /opt/vmangos/bin/Extractors/{MapExtractor,VMapExtractor,VMapAssembler,MoveMapGenerator}; do
     test -x "$binary"
@@ -77,7 +79,7 @@ docker run -d --network "$network" --name "$login" "${app_env[@]}" \
   "$image" realmd >/dev/null
 for attempt in $(seq 1 60); do
   if docker exec "$login" python3 -c "import socket; socket.create_connection(('127.0.0.1',3724),timeout=2).close()" 2>/dev/null; then
-    echo 'PASS: compiled binaries, four-database bootstrap, repeat-bootstrap preservation, configs and realmd TCP startup'
+    echo 'PASS: official release binaries, four-database bootstrap, repeat-bootstrap preservation, configs and realmd TCP startup'
     exit 0
   fi
   if [ "$(docker inspect -f '{{.State.Running}}' "$login")" != true ]; then

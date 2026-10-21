@@ -1,29 +1,33 @@
-FROM ubuntu:24.04 AS build
-ARG CORE_REV=a9fa07aab5e745cae17c5016c9eddffdb75ea7f1
-ARG BUILD_JOBS=2
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake git ca-certificates libmysqlclient-dev libssl-dev zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-RUN git init /src && cd /src && git remote add origin https://github.com/vmangos/core.git \
-    && git fetch --depth 1 origin "${CORE_REV}" && git checkout --detach FETCH_HEAD \
-    && test "$(git rev-parse HEAD)" = "${CORE_REV}"
-RUN cmake -S /src -B /build -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/opt/vmangos -DSUPPORTED_CLIENT_BUILD=5875 \
-    -DBUILD_FOR_HOST_CPU=OFF -DBUILD_EXTRACTORS=ON -DENABLE_CPPTRACE=OFF \
-    -DDEBUG_SYMBOLS=OFF -DUSE_PCH=ON \
-    && cmake --build /build --parallel "${BUILD_JOBS}" && cmake --install /build \
-    && printf '%s\n' "${CORE_REV}" > /opt/vmangos/REVISION \
-    && mkdir -p /opt/vmangos/sql \
-    && cp -r /src/sql/migrations /opt/vmangos/sql/ \
-    && cp /src/LICENSE* /opt/vmangos/
-
 FROM ubuntu:24.04
 ARG CORE_REV=a9fa07aab5e745cae17c5016c9eddffdb75ea7f1
+ARG RELEASE_ARCHIVE=dev-linux-amd64-a9fa07a.tar.gz
+ARG RELEASE_SHA256=8dc140a926e882d1d4644f3bca0ae370bd0882e175572ab3caacddc493f59511
+ARG SOURCE_SHA256=1c771430f367d231b7e4af9f72387098cd366a068ced879939a83281d0321f0f
 LABEL org.opencontainers.image.source="https://github.com/vmangos/core" \
       org.opencontainers.image.revision="${CORE_REV}"
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl unzip python3 mariadb-client libmysqlclient21 libssl3t64 zlib1g tzdata \
+    ca-certificates curl unzip python3 mariadb-client tzdata \
     && rm -rf /var/lib/apt/lists/*
+# Official Linux release bundles its non-glibc shared libraries with relative RPATHs.
+# No compiler, CMake or source compilation is used in this image build.
+RUN curl --fail --location --retry 3 \
+    "https://github.com/vmangos/core/releases/download/latest/${RELEASE_ARCHIVE}" -o /tmp/release.tar.gz \
+    && echo "${RELEASE_SHA256}  /tmp/release.tar.gz" | sha256sum -c - \
+    && mkdir -p /opt/vmangos \
+    && tar -xzf /tmp/release.tar.gz --strip-components=1 -C /opt/vmangos \
+    && printf '%s\n' "${CORE_REV}" > /opt/vmangos/REVISION \
+    && rm /tmp/release.tar.gz
+# SQL migrations and license are not included in the binary release.
+# Extract only these from the exact source revision; do not build the source.
+RUN curl --fail --location --retry 3 \
+    "https://codeload.github.com/vmangos/core/tar.gz/${CORE_REV}" -o /tmp/source.tar.gz \
+    && echo "${SOURCE_SHA256}  /tmp/source.tar.gz" | sha256sum -c - \
+    && mkdir -p /tmp/core \
+    && tar -xzf /tmp/source.tar.gz --strip-components=1 -C /tmp/core \
+       "core-${CORE_REV}/sql/migrations" "core-${CORE_REV}/LICENSE" \
+    && mv /tmp/core/sql /opt/vmangos/sql \
+    && mv /tmp/core/LICENSE /opt/vmangos/LICENSE \
+    && rm /tmp/source.tar.gz && rmdir /tmp/core
 # db_latest is a MOVING release: preserve this ZIP in your own artifact storage.
 # Its hash is checked so a different snapshot cannot silently replace it.
 RUN curl --fail --location --retry 3 \
@@ -31,7 +35,6 @@ RUN curl --fail --location --retry 3 \
     && echo '9e178f1d70363e92a7b8c259000102dc9739333d79ca00c99ea32dd1fb43e904  /tmp/db.zip' | sha256sum -c - \
     && mkdir -p /opt/vmangos/db && unzip -q /tmp/db.zip -d /opt/vmangos/db \
     && rm /tmp/db.zip
-COPY --from=build /opt/vmangos /opt/vmangos
 COPY runtime.py /usr/local/bin/vmangos-runtime.py
 RUN groupadd -g 10001 vmangos && useradd -u 10001 -g 10001 -M vmangos \
     && mkdir -p /run/vmangos /var/log/vmangos /data \

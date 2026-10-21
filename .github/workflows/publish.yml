@@ -13,12 +13,12 @@ permissions:
 
 concurrency:
   group: vmangos-image-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   image:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -48,7 +48,6 @@ jobs:
           push: false
           provenance: false
           tags: ${{ env.CI_IMAGE }}
-          build-args: BUILD_JOBS=2
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             io.vmangos.core.source=https://github.com/vmangos/core
@@ -87,6 +86,6 @@ jobs:
             echo "- Core/client tag: \`$image:a9fa07a-5875\`"
             echo "- Immutable reference: \`$image@$digest\`"
             echo '- Platform: linux/amd64; client: 1.12.1 build 5875'
-            echo '- Passed: binary dependencies, MariaDB four-database import, repeat-bootstrap data preservation, realmd TCP startup'
+            echo '- Passed: official release binary dependencies, MariaDB four-database import, repeat-bootstrap data preservation, realmd TCP startup'
             echo '- Not covered: extracted client maps or in-game login/world gameplay'
           } >> "$GITHUB_STEP_SUMMARY"
