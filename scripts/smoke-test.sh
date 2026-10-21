@@ -14,6 +14,8 @@ REALM_NAME='VMaNGOS CI'
 echo "::add-mask::$DB_ROOT_PASSWORD"
 echo "::add-mask::$DB_PASSWORD"
 
+# Invoked indirectly by the EXIT trap, including on the final exit 0.
+# shellcheck disable=SC2317
 cleanup() {
   status=$?
   if [ "$status" -ne 0 ]; then
