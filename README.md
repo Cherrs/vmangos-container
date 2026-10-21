@@ -26,14 +26,9 @@ The release bundles its non-glibc shared libraries and loads them through relati
 
 ## Pull the image
 
-The package is published privately by default. Sign in with a GitHub personal access token (classic) that has `read:packages`. Authorize the token for SSO if your account requires it. Keep the token out of source control.
-
 ```bash
-printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 docker pull ghcr.io/cherrs/vmangos-container:a9fa07a-5875
 ```
-
-Manage access under **Packages → vmangos-container → Package settings** on GitHub.
 
 ## Mount game data at /data
 

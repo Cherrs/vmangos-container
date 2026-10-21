@@ -26,14 +26,9 @@ ghcr.io/cherrs/vmangos-container:sha-<repository-commit>
 
 ## 拉取镜像
 
-GHCR 包默认按私有方式发布。拉取前，使用具有 `read:packages` 权限的 GitHub PAT（classic）登录；账号要求 SSO 时，还需为 Token 授权。不要将 Token 提交到仓库。
-
 ```bash
-printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 docker pull ghcr.io/cherrs/vmangos-container:a9fa07a-5875
 ```
-
-包的访问权限可在 GitHub 的 **Packages → vmangos-container → Package settings** 中设置。
 
 ## 将游戏数据挂载到 /data
 
